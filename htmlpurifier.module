@@ -30,7 +30,7 @@ malicious HTML and ensures standards compliant output.  You can modify
 text formats at <a href="@formats">the format configurations page</a>.
 TEXT
       , array(
-        '@formats' => url('admin/config/content/formats')
+        '@formats' => \Drupal\Core\Url::fromRoute('filter.admin_overview')
       ));
     break;
   }
@@ -150,25 +150,38 @@ function htmlpurifier_libraries_postload_callback(&$library, $version, $variant)
  * Checks for updates to the HTML Purifier library.
  */
 function htmlpurifier_check_version($force = FALSE) {
-  if ($force || !variable_get('htmlpurifier_version_check_failed', FALSE)) {
+  if ($force || !\Drupal::config('htmlpurifier.settings')->get('htmlpurifier_version_check_failed')) {
     // Maybe this should be changed in the future:
-    $result = drupal_http_request('http://htmlpurifier.org/live/VERSION');
+    // @FIXME
+// drupal_http_request() has been replaced by the Guzzle HTTP client, which is bundled
+// with Drupal core.
+// 
+// 
+// @see https://www.drupal.org/node/1862446
+// @see http://docs.guzzlephp.org/en/latest
+// $result = drupal_http_request('http://htmlpurifier.org/live/VERSION');
+
     if ($result->code == 200) {
       $version = trim($result->data);
-      if (variable_get('html_purifier_version_check_failed', FALSE) == TRUE) {
-        variable_set('htmlpurifier_version_check_failed', FALSE);
-      }
-      $current_version = variable_get('htmlpurifier_version_current', '');
+      // @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// if (variable_get('html_purifier_version_check_failed', FALSE) == TRUE) {
+//         variable_set('htmlpurifier_version_check_failed', FALSE);
+//       }
+
+      $current_version = \Drupal::config('htmlpurifier.settings')->get('htmlpurifier_version_current');
       if ($current_version != $version) {
-        variable_set('htmlpurifier_version_current', $version);
+        \Drupal::config('htmlpurifier.settings')->set('htmlpurifier_version_current', $version)->save();
       }
       return $version;
     }
     else {
-      variable_set('htmlpurifier_version_check_failed', TRUE);
+      \Drupal::config('htmlpurifier.settings')->set('htmlpurifier_version_check_failed', TRUE)->save();
       // Delete any previously known "latest" version so that people can be
       // alerted if a problem appears on a previously working site.
-      variable_del('htmlpurifier_version_current');
+      \Drupal::config('htmlpurifier.settings')->clear('htmlpurifier_version_current')->save();
     }
   }
 }
@@ -252,8 +265,8 @@ function htmlpurifier_get_info() {
   $infos = &drupal_static(__FUNCTION__, array());
 
   if (empty($infos)) {
-    foreach (module_implements('htmlpurifier_info') as $module) {
-      $info = module_invoke($module, 'htmlpurifier_info');
+    foreach (\Drupal::moduleHandler()->getImplementations('htmlpurifier_info') as $module) {
+      $info = \Drupal::moduleHandler()->invoke($module, 'htmlpurifier_info');
       if (isset($info) && is_array($info)) {
         // Assign the name of the module implementing the htmlpurifier_info and ensure
         // default values.
@@ -282,7 +295,7 @@ function htmlpurifier_get_info() {
           }
 
           // Define the language direction
-          if (defined('LANGUAGE_RTL') && $GLOBALS['language']->direction === LANGUAGE_RTL) {
+          if (defined('\Drupal\Core\Language\Language::LANGUAGE_RTL') && \Drupal::languageManager()->getCurrentLanguage()->direction === \Drupal\Core\Language\Language::LANGUAGE_RTL) {
             $info[$name]['settings'] += array(
               'Attr.DefaultTextDir' => 'rtl'
             );
@@ -292,7 +305,7 @@ function htmlpurifier_get_info() {
       }
     }
     // Allow modules to alter htmlpurifier_info definitions.
-    drupal_alter('htmlpurifier_info', $infos);
+    \Drupal::moduleHandler()->alter('htmlpurifier_info', $infos);
   }
 
   return $infos;
@@ -352,7 +365,7 @@ function _htmlpurifier_add_css(&$field, $nid) {
   // If there's an HTML Purifier Cache #, we need to load CSSTidy blocks
   if ($cache_match == 1) {
     $cid = 'css:' . $cache_matches[1];
-    $old = cache_get($cid, 'cache_htmlpurifier');
+    $old = \Drupal::cache('cache_htmlpurifier')->get($cid);
 
     // We should always have some cached style blocks to load, but if we don't, just bail
     if ($old) {
@@ -388,7 +401,7 @@ function _htmlpurifier_add_css(&$field, $nid) {
 
       // If we had to update CSSTidy blocks, cache the results
       if ($old->data != $styles) {
-        cache_set($cid, $styles, 'cache_htmlpurifier', CACHE_PERMANENT);
+        \Drupal::cache('cache_htmlpurifier')->set($cid, $styles, \Drupal\Core\Cache\Cache::PERMANENT);
       }
     }
   }
@@ -425,7 +438,7 @@ function _htmlpurifier_process_text($text, $filter, $format, $langcode, $cache =
   if ($htmlpurifier_library['installed']) {
     if ($cache) {
       $cid = $format->format . ':' . $langcode . ':' . hash('sha256', $text);
-      $old = cache_get($cid, 'cache_htmlpurifier');
+      $old = \Drupal::cache('cache_htmlpurifier')->get($cid);
       if ($old)
         return $old->data;
     }
@@ -443,13 +456,13 @@ function _htmlpurifier_process_text($text, $filter, $format, $langcode, $cache =
       if ($cache) {
         // Get style blocks, cache them, and help hook_nodeapi find the cache
         $styles = $purifier->context->get('StyleBlocks');
-        cache_set('css:' . $cid, $styles, 'cache_htmlpurifier', CACHE_PERMANENT);
+        \Drupal::cache('cache_htmlpurifier')->set('css:' . $cid, $styles, \Drupal\Core\Cache\Cache::PERMANENT);
         $return = '<!-- HTML Purifier Cache #' . $cid . ' -->' . $return;
       }
     }
 
     if ($cache) {
-      cache_set($cid, $return, 'cache_htmlpurifier', CACHE_PERMANENT);
+      \Drupal::cache('cache_htmlpurifier')->set($cid, $return, \Drupal\Core\Cache\Cache::PERMANENT);
       static $done = FALSE;
       $done = TRUE;
     }
@@ -501,7 +514,7 @@ function _htmlpurifier_get_config($format_name, $config_name, $reset = FALSE) {
 
   // Allow other modules to alter the HTML definition.
   $html_definition = $config->getHTMLDefinition(TRUE);
-  drupal_alter('htmlpurifier_html_definition', $html_definition);
+  \Drupal::moduleHandler()->alter('htmlpurifier_html_definition', $html_definition);
 
   return $config;
 }
@@ -532,7 +545,7 @@ function _htmlpurifier_settings($form, &$form_state, $filter, $format, $defaults
   if ($htmlpurifier_library['installed']) {
 
     // Dry run, testing for errors:
-    _htmlpurifier_process_text('dry run text', $filter, $format, LANGUAGE_NONE, FALSE);
+    _htmlpurifier_process_text('dry run text', $filter, $format, \Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED, FALSE);
 
     $module_path = drupal_get_path('module', 'htmlpurifier');
     $infos = htmlpurifier_get_info();
@@ -607,12 +620,15 @@ function _htmlpurifier_settings($form, &$form_state, $filter, $format, $defaults
       ),
     );
 
-    $intro = '<div class="form-item"><div class="description">'
-      . t(
-        'Please click on a directive name for more information on what it does before enabling or changing anything!  Changes will not apply to old entries until you clear the cache (see the <a href="@url">settings page</a>).',
-        array(
-          '@url' => url('admin/config/content/htmlpurifier')
-        )) . '</div></div>';
+    // @FIXME
+// url() expects a route name or an external URI.
+// $intro = '<div class="form-item"><div class="description">'
+//       . t(
+//         'Please click on a directive name for more information on what it does before enabling or changing anything!  Changes will not apply to old entries until you clear the cache (see the <a href="@url">settings page</a>).',
+//         array(
+//           '@url' => url('admin/config/content/htmlpurifier')
+//         )) . '</div></div>';
+
 
     $allowed = $infos[$config_name]['allowed'];
 

@@ -83,13 +83,13 @@ class HTMLPurifier_DefinitionCache_Drupal extends HTMLPurifier_DefinitionCache {
   }
 
   function fetchFromDrupalCache($key) {
-    $cached = cache_get("htmlpurifier:$key");
+    $cached = \Drupal::cache()->get("htmlpurifier:$key");
     if ($cached) return unserialize($cached->data);
     return FALSE;
   }
 
   function storeInDrupalCache($def, $key) {
-    cache_set("htmlpurifier:$key", serialize($def), 'cache', CACHE_PERMANENT);
+    \Drupal::cache('cache')->set("htmlpurifier:$key", serialize($def), \Drupal\Core\Cache\Cache::PERMANENT);
   }
 
 }

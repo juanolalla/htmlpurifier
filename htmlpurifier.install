@@ -7,7 +7,7 @@
  * Implements hook_schema().
  */
 function htmlpurifier_schema() {
-  $t = get_t();
+  $t = 't';
   $schema['cache_htmlpurifier'] = drupal_get_schema_unprocessed('system', 'cache');
   $schema['cache_htmlpurifier']['description'] = $t(<<<DESCRIPTION
 Cache table for the HTML Purifier module just like cache_filter, except that
@@ -22,9 +22,11 @@ DESCRIPTION
  * Implements hook_uninstall().
  */
 function htmlpurifier_uninstall() {
-  db_delete('variable')
-    ->condition('name', 'htmlpurifier%', 'LIKE')
-    ->execute();
+  // @FIXME
+// db_delete('variable')
+//     ->condition('name', 'htmlpurifier%', 'LIKE')
+//     ->execute();
+
 }
 
 /**
@@ -36,7 +38,7 @@ function htmlpurifier_requirements($phase) {
   $requirements = array();
 
   // Ensure translations do not break at install time
-  $t = get_t();
+  $t = 't';
 
   if ($phase == 'runtime') {
     // Default requirement title
@@ -45,7 +47,7 @@ function htmlpurifier_requirements($phase) {
     $library = libraries_detect('htmlpurifier');
 
     // Grab the versions of HTML Purifier
-    $current_version = variable_get('htmlpurifier_version_current', FALSE);
+    $current_version = \Drupal::config('htmlpurifier.settings')->get('htmlpurifier_version_current');
     $our_version = isset($library['version']) ? $library['version'] : '';
 
     // If we aren't at a current version, check again...
@@ -112,19 +114,39 @@ function htmlpurifier_update_6200() {
     $filters = filter_list_format($format);
     if (!isset($filters['htmlpurifier/0']))
       continue;
-    $config_data = array(
-      'URI.DisableExternalResources' => variable_get("htmlpurifier_externalresources_$format", TRUE),
-      'Attr.EnableID' => variable_get("htmlpurifier_enableattrid_$format", FALSE),
-      'AutoFormat.Linkify' => variable_get("htmlpurifier_linkify_$format", TRUE),
-      'AutoFormat.AutoParagraph' => variable_get("htmlpurifier_autoparagraph_$format", TRUE),
-      'Null_HTML.Allowed' => !variable_get("htmlpurifier_allowedhtml_enabled_$format", FALSE),
-      'HTML.Allowed' => variable_get("htmlpurifier_allowedhtml_$format", ''),
-      'Filter.YouTube' => variable_get("htmlpurifier_preserveyoutube_$format", FALSE));
+    // @FIXME
+// // @FIXME
+// // The correct configuration object could not be determined. You'll need to
+// // rewrite this call manually.
+// $config_data = array(
+//       'URI.DisableExternalResources' => variable_get("htmlpurifier_externalresources_$format", TRUE),
+//       'Attr.EnableID' => variable_get("htmlpurifier_enableattrid_$format", FALSE),
+//       'AutoFormat.Linkify' => variable_get("htmlpurifier_linkify_$format", TRUE),
+//       'AutoFormat.AutoParagraph' => variable_get("htmlpurifier_autoparagraph_$format", TRUE),
+//       'Null_HTML.Allowed' => !variable_get("htmlpurifier_allowedhtml_enabled_$format", FALSE),
+//       'HTML.Allowed' => variable_get("htmlpurifier_allowedhtml_$format", ''),
+//       'Filter.YouTube' => variable_get("htmlpurifier_preserveyoutube_$format", FALSE));
+
     if (defined('HTMLPurifier::VERSION') && version_compare(HTMLPurifier::VERSION, '3.1.0-dev', '>=')) {
-      $config_data['HTML.ForbiddenElements'] = variable_get("htmlpurifier_forbiddenelements_$format", '');
-      $config_data['HTML.ForbiddenAttributes'] = variable_get("htmlpurifier_forbiddenattributes_$format", '');
+      // @FIXME
+// // @FIXME
+// // The correct configuration object could not be determined. You'll need to
+// // rewrite this call manually.
+// $config_data['HTML.ForbiddenElements'] = variable_get("htmlpurifier_forbiddenelements_$format", '');
+
+      // @FIXME
+// // @FIXME
+// // The correct configuration object could not be determined. You'll need to
+// // rewrite this call manually.
+// $config_data['HTML.ForbiddenAttributes'] = variable_get("htmlpurifier_forbiddenattributes_$format", '');
+
     }
-    variable_set("htmlpurifier_config_$format", $config_data);
+    // @FIXME
+// // @FIXME
+// // The correct configuration object could not be determined. You'll need to
+// // rewrite this call manually.
+// variable_set("htmlpurifier_config_$format", $config_data);
+
   }
 
   return array();
@@ -151,10 +173,30 @@ function htmlpurifier_update_7000() {
     foreach ($query as $record) {
       // Pull out the filter settings from variables
       $settings = array();
-      $settings['htmlpurifier_help'] = variable_get("htmlpurifier_help_{$record->format}", NULL);
-      variable_del("htmlpurifier_help_{$record->format}");
-      $settings['htmlpurifier_basic_config'] = variable_get("htmlpurifier_config_{$record->format}", NULL);
-      variable_del("htmlpurifier_config_{$record->format}");
+      // @FIXME
+// // @FIXME
+// // The correct configuration object could not be determined. You'll need to
+// // rewrite this call manually.
+// $settings['htmlpurifier_help'] = variable_get("htmlpurifier_help_{$record->format}", NULL);
+
+      // @FIXME
+// // @FIXME
+// // The correct configuration object could not be determined. You'll need to
+// // rewrite this call manually.
+// variable_del("htmlpurifier_help_{$record->format}");
+
+      // @FIXME
+// // @FIXME
+// // The correct configuration object could not be determined. You'll need to
+// // rewrite this call manually.
+// $settings['htmlpurifier_basic_config'] = variable_get("htmlpurifier_config_{$record->format}", NULL);
+
+      // @FIXME
+// // @FIXME
+// // The correct configuration object could not be determined. You'll need to
+// // rewrite this call manually.
+// variable_del("htmlpurifier_config_{$record->format}");
+
       // Determine the filter type (basic/advanced)
       $filter_name = $module . "_basic";
       if ($record->delta == '1') {
@@ -172,7 +214,12 @@ function htmlpurifier_update_7000() {
         ->execute();
     }
     // Double caching was removed in D7
-    variable_del(variable_get("htmlpurifier_doublecache", NULL));
+    // @FIXME
+// // @FIXME
+// // The correct configuration object could not be determined. You'll need to
+// // rewrite this call manually.
+// variable_del(\Drupal::config('htmlpurifier.settings')->get("htmlpurifier_doublecache"));
+
     // Remove all entries from the migration table
     db_delete($d6_table)
       ->condition('module', $module)
